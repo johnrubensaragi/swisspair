@@ -29,7 +29,7 @@ short int score[playermax], black[playermax], white[playermax];
 short int match=0, matchnum, matchperrnd, matchperply, rndperply;
 short int wplayer[matchmax], bplayer[matchmax], playerbye[byemax];
 string name[playermax];
-bool alwayssave, bye;
+bool alwayssave, bye, deletedplayer[playermax];
 string input;
 
 void restart(int i){
@@ -64,28 +64,37 @@ void readfromcfg(string dataln, string datatype){
     dataword: data stored in string format, per player
     data    : data stored in int format, per player
 */
-    int w=0;
-    for(int i=0; i < dataln.length(); i++){
-        if(dataln[i]=='/'){
+    int w=-1, length=dataln.length();
+    for(int i=0; i <= length; i++){
+        if(dataln[i]=='/'||i==length){
+            if(w>=0){
+                if(datatype=="slot"&&w==0)    rnd=stoi(dataword);
+                else if(datatype=="slot"&&w==1)rndnum=stoi(dataword);
+                else if(datatype=="name"){
+                    name[w]=dataword;
+                    playernum++;
+                }
+                else if(datatype=="score")    score[w]=stoi(dataword);
+                else if(datatype=="white")    white[w]=stoi(dataword);
+                else if(datatype=="black")    black[w]=stoi(dataword);
+                else if(datatype=="wplayer"){
+                    wplayer[w]=stoi(dataword);
+                    matchnum++;
+                }
+                else if(datatype=="bplayer")  bplayer[w]=stoi(dataword);
+                else if(datatype=="playerbye")playerbye[w]=stoi(dataword);
+            }
             w++;               //slash indicates a new word
             dataword="";        //restart word
         }
-        else if(w>0){
-            dataword+=dataln[i];
-            if(datatype=="slot"&&w==1)    rnd=stoi(dataword);
-            else if(datatype=="name")     name[i]=dataword;
-            else if(datatype=="score")    score[i]=stoi(dataword);
-            else if(datatype=="white")    white[i]=stoi(dataword);
-            else if(datatype=="black")    black[i]=stoi(dataword);
-            else if(datatype=="wplayer")  wplayer[i]=stoi(dataword);
-            else if(datatype=="bplayer")  bplayer[i]=stoi(dataword);
-            else if(datatype=="playerbye")playerbye[i]=stoi(dataword);
-        }
+        else dataword+=dataln[i];
     }
 }
 void load(){
-    string slotln, nameln, scoreln, whiteln, blackln;  //data stored in the config file, line by line
+    string slotln, nameln, scoreln, whiteln, blackln, wplayerln, bplayerln, playerbyeln;  //data stored in the config file, line by line
     ifstream config("swiss.cfg");
+    playernum=0;
+    matchnum=0;
 /*  Config file structure:
     Slot 0      0th line
     name        1st line
@@ -101,29 +110,35 @@ void load(){
         getline(config, nameln);
     }
     //and then access the desired data, store it into arrays.
-    getline(config, nameln);
+    getline(config, slotln);
     readfromcfg(slotln, "slot");
     getline(config, nameln);
     readfromcfg(nameln, "name");
     getline(config, scoreln);
     readfromcfg(scoreln, "score");
-    getline(config, scoreln);
+    getline(config, whiteln);
     readfromcfg(whiteln, "white");
-    getline(config, scoreln);
-    readfromcfg(scoreln, "black");
+    getline(config, blackln);
+    readfromcfg(blackln, "black");
+    getline(config, wplayerln);
+    readfromcfg(wplayerln, "wplayer");
+    getline(config, bplayerln);
+    readfromcfg(bplayerln, "bplayer");
+    getline(config, playerbyeln);
+    readfromcfg(playerbyeln, "playerbye");
     config.close();
     displaydata();
 }
 void storetocfg(string datatype, ofstream &configtemp){
     configtemp << datatype;
-    if(datatype=="Slot")configtemp <<" "<< slot << "/"<< rndnum;
+    if(datatype=="Slot")configtemp <<" "<< slot << "/" << rnd << "/" << rndnum;
     if(datatype=="name")for(int i=0; i < playernum; i++)configtemp << "/" << name[i];
     else if(datatype=="score")for(int i=0; i < playernum; i++)configtemp << "/" << score[i];
     else if(datatype=="white")for(int i=0; i < playernum; i++)configtemp << "/" << white[i];
     else if(datatype=="black")for(int i=0; i < playernum; i++)configtemp << "/" << black[i];
     else if(datatype=="wplayer")for(int i=0; i < matchnum; i++)configtemp << "/" << wplayer[i];
     else if(datatype=="bplayer")for(int i=0; i < matchnum; i++)configtemp << "/" << bplayer[i];
-    else if(datatype=="playerbye")for(int i=0; i < matchnum; i++)configtemp << "/" << playerbye[i];
+    else if(datatype=="playerbye")for(int i=0; i < rndnum; i++)configtemp << "/" << playerbye[i];
 }
 void save(){
     string line;
@@ -143,6 +158,7 @@ void save(){
         else configtemp << line;
         configtemp << endl;
     }
+    config.close();
     configtemp.close();
     remove("swiss.cfg");
     rename("swisstemp.cfg", "swiss.cfg");
@@ -274,7 +290,9 @@ void addplayer(){
     restart(player);
 }
 void delplayer(){
-    cout<<"Player no. : ";
+    cout<<"Player name: ";
+    cin.ignore();
+    getline(cin, input);
     cin>>player;
     name[player]="";
     restart(player);
@@ -296,7 +314,7 @@ void rndedit(){
     matchnum=rndnum*matchperrnd;
 }
 void edit(){
-    //cout<<"Press c to confirm, a to add player, d to delete player, n to change name, r to change round.\n";
+    cout<<"Press c to confirm, a to add player, d to delete player, n to change name, r to change round.\n";
     cout<<"Your answer: ";
     cin>>input;
     while(input!="c"&&input!="a"&&input!="d"&&input!="n"&&input!="r"){
@@ -315,14 +333,14 @@ int inputresult(){
         cout<<"Enter match number to edit result manually, "<<endl
         <<"0. edit result sequentially "<<endl
         <<"-1. to edit something,"<<endl
-        <<"-2. to end match: "<<endl
-        <<"w. white wins"<<endl
-        <<"b. black wins"<<endl
-        <<"d. draw"<<endl
-        <<"f. forfeit"<<endl;
+        <<"-2. to end match: "<<endl;
         cin>>inputint;
         if(inputint==-1)edit();
         else if(inputint==0){
+            cout <<"w. white wins"<<endl
+            <<"b. black wins"<<endl
+            <<"d. draw"<<endl
+            <<"f. forfeit"<<endl;
             for(match=matchperrnd*rnd; match<matchperrnd*(rnd+1); match++){
                 cout<<match+1<<". "<<name[wplayer[match]]<<" vs "<<name[bplayer[match]]<<endl;
                 cout<<"Result: ";
@@ -331,6 +349,10 @@ int inputresult(){
             }
         }
         else if(inputint>0){
+            cout <<"w. white wins"<<endl
+            <<"b. black wins"<<endl
+            <<"d. draw"<<endl
+            <<"f. forfeit"<<endl;
             match=inputint-1;
             cout<<match+1<<". "<<name[wplayer[match]]<<" vs "<<name[bplayer[match]]<<endl;
             cout<<"Result: ";
@@ -355,14 +377,12 @@ void sort(bool display){ //selection sort descending
         for(int i=0; i<playernum; i++){
             cout<<i+1<<". "<<namesort[i]<<"      "<<scoresort[i]<<endl;
         }
-        cout<<"Enter y to continue..."<<endl;
-        cin>>input;
     }
 }
 void finalresult(){
     cout<<"Leaderboards: "<<endl;
     sort(true);
-    cout<<"Congratulations for the winner!";
+    cout<<"Congratulations for the winner!!! Enter y to exit...";
     cin>>input;
 }
 void rndexecute(){
@@ -374,17 +394,13 @@ void rndexecute(){
     1       3
             4
             5
-    rndmax  matchmax
+    rndnum  matchnum
 */
+    matchperrnd=floor(playernum/2);    //match per round=floor(number of player / 2)
     matchperply=playernum*(playernum-1)/2;
     rndperply=matchperply/matchperrnd;
-    for(int i=0; i<rndmax; i++){
-        wplayer[i]=-1;
-        bplayer[i]=-1;
-    }
-    for(int i=0; i<byemax; i++)playerbye[i]=-1;
     if(playernum%2==1)bye=true;
-    for(rnd=rnd; rnd < rndmax; rnd++){
+    for(rnd=rnd; rnd < rndnum; rnd++){
         ply=floor(rnd*matchperrnd/matchperply);
         makepair();
         system("CLS");
@@ -399,8 +415,14 @@ void rndexecute(){
             <<name[playerbye[rnd]]<<" gets a bonus by "<<byep<<" point(s)."<<endl;
         }
         inputresult();
-        cout<<"Round "<<rnd<<" results: "<<endl;
-        sort(true);
+        if(rnd<rndnum-1){
+            system("CLS");
+            cout<<"Round "<<rnd+1<<" results: "<<endl;
+            sort(true);
+            cout<<"Enter y to continue..."<<endl;
+            cin>>input;
+        }
+        if(alwayssave==true)save;
     }
 }
 void manualinput(){
@@ -433,8 +455,9 @@ int interface(){
         load();
         return 0;
     }
-    matchperrnd=floor(playernum/2);    //match per round=floor(number of player / 2)
-    rndmax=floor(matchmax/matchperrnd);
+    matchperrnd=floor(playernum/2);
+    rndmax=floor(matchmax/floor(playernum/2));
+    for(int i=0; i<byemax; i++)playerbye[i]=-1;
     cout << "How many round(s)? (1 ~ " << rndmax << "): "; //accidentally sad face ):
     cin >> rndnum;
     while(rndnum<1 || rndnum>rndmax){
@@ -443,13 +466,17 @@ int interface(){
         cin >> rndnum;
     }
     matchnum=rndnum*matchperrnd;
+    for(int i=0; i<matchnum; i++){
+        wplayer[i]=-1;
+        bplayer[i]=-1;
+    }
     input="n";
     while (input!="c"){
         displaydata();
         cout<<"Confirm? Option:"<<endl;
         edit();
     }
-    //cout << "Do you want to save this? (y/n)";
+    cout << "Do you want to save this? (y/n)";
     cin >> input;
     if(input=="y"){
         cout << "Enter 0 to 9 to save, existing slot will be overwrited: ";
